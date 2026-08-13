@@ -2,7 +2,7 @@ import { useState } from "react";
 import "./App.css";
 import qrCode from "./assets/qr-code.png";
 
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = "http://192.168.1.20:8000";
 
 function App() {
   const [file, setFile] = useState(null);
