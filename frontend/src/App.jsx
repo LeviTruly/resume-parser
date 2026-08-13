@@ -12,12 +12,18 @@ function App() {
   const [showQR, setShowQR] = useState(false);
   const [showHowItWorks, setShowHowItWorks] = useState(false);
 
+  const [jobMatches, setJobMatches] = useState([]);
+  const [matchingLoading, setMatchingLoading] = useState(false);
+  const [matchingError, setMatchingError] = useState("");
+
   const handleFileChange = (event) => {
     const selectedFile = event.target.files[0];
+
     if (!selectedFile) return;
 
     const allowedExtensions = [".pdf", ".doc", ".docx"];
     const fileName = selectedFile.name.toLowerCase();
+
     const validFile = allowedExtensions.some((extension) =>
       fileName.endsWith(extension)
     );
@@ -36,7 +42,44 @@ function App() {
 
     setFile(selectedFile);
     setResult(null);
+    setJobMatches([]);
+    setMatchingError("");
     setError("");
+  };
+
+  const findJobMatches = async (resumeData) => {
+    setMatchingLoading(true);
+    setMatchingError("");
+
+    try {
+      const response = await fetch(`${API_URL}/jobs/match`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          resume: resumeData
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.detail || "Could not find matching jobs."
+        );
+      }
+
+      setJobMatches(data.matches || []);
+    } catch (err) {
+      console.error("Job matching error:", err);
+
+      setMatchingError(
+        err.message || "Could not find matching jobs."
+      );
+    } finally {
+      setMatchingLoading(false);
+    }
   };
 
   const uploadResume = async () => {
@@ -48,6 +91,8 @@ function App() {
     setLoading(true);
     setError("");
     setResult(null);
+    setJobMatches([]);
+    setMatchingError("");
 
     const formData = new FormData();
     formData.append("file", file);
@@ -55,18 +100,21 @@ function App() {
     try {
       const response = await fetch(`${API_URL}/resume/parse`, {
         method: "POST",
-        body: formData,
+        body: formData
       });
 
       const data = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          data.detail || "Something went wrong while processing the resume."
+          data.detail ||
+            "Something went wrong while processing the resume."
         );
       }
 
       setResult(data);
+
+      findJobMatches(data.resume);
     } catch (err) {
       if (err.name === "TypeError") {
         setError(
@@ -83,10 +131,17 @@ function App() {
   const resetApp = () => {
     setFile(null);
     setResult(null);
+    setJobMatches([]);
+    setMatchingError("");
     setError("");
+    setLoading(false);
+    setMatchingLoading(false);
 
     const input = document.getElementById("resume-input");
-    if (input) input.value = "";
+
+    if (input) {
+      input.value = "";
+    }
   };
 
   return (
@@ -99,8 +154,11 @@ function App() {
 
         <div className="nav-links">
           <button
-              className="how-button"
-              onClick={() => setShowHowItWorks(true)}> How it works </button>
+            className="how-button"
+            onClick={() => setShowHowItWorks(true)}
+          >
+            How it works
+          </button>
 
           <button
             className="coffee-button"
@@ -131,7 +189,9 @@ function App() {
           <div className="upload-card">
             <div className="upload-icon">↑</div>
 
-            <h2>{file ? file.name : "Upload your resume"}</h2>
+            <h2>
+              {file ? file.name : "Upload your resume"}
+            </h2>
 
             <p>
               {file
@@ -139,7 +199,10 @@ function App() {
                 : "Select your resume to get started"}
             </p>
 
-            <label className="choose-button" htmlFor="resume-input">
+            <label
+              className="choose-button"
+              htmlFor="resume-input"
+            >
               {file ? "Choose another" : "Choose Resume"}
 
               <input
@@ -174,11 +237,17 @@ function App() {
                   <div className="loading-progress"></div>
                 </div>
 
-                <p>Extracting information from your resume...</p>
+                <p>
+                  Extracting information from your resume...
+                </p>
               </div>
             )}
 
-            {error && <div className="error">⚠ {error}</div>}
+            {error && (
+              <div className="error">
+                ⚠ {error}
+              </div>
+            )}
           </div>
 
           <div className="features">
@@ -187,7 +256,9 @@ function App() {
 
               <div>
                 <h3>Resume Parsing</h3>
-                <p>Extract information automatically.</p>
+                <p>
+                  Extract information automatically.
+                </p>
               </div>
             </div>
 
@@ -196,7 +267,9 @@ function App() {
 
               <div>
                 <h3>Fast Analysis</h3>
-                <p>Process your resume in seconds.</p>
+                <p>
+                  Process your resume in seconds.
+                </p>
               </div>
             </div>
 
@@ -205,7 +278,9 @@ function App() {
 
               <div>
                 <h3>Job Matching</h3>
-                <p>Find opportunities that fit you.</p>
+                <p>
+                  Find opportunities that fit you.
+                </p>
               </div>
             </div>
           </div>
@@ -214,17 +289,24 @@ function App() {
         <main className="results">
           <div className="results-header">
             <div>
-              <div className="badge">✓ Resume analyzed</div>
+              <div className="badge">
+                ✓ Resume analyzed
+              </div>
 
               <h1>
                 Resume
                 <span> ready.</span>
               </h1>
 
-              <p>{result.filename || file?.name}</p>
+              <p>
+                {result.filename || file?.name}
+              </p>
             </div>
 
-            <button className="secondary-button" onClick={resetApp}>
+            <button
+              className="secondary-button"
+              onClick={resetApp}
+            >
               ← Upload another
             </button>
           </div>
@@ -249,11 +331,15 @@ function App() {
             </div>
 
             <div className="summary-card">
-              <div className="summary-icon">✦</div>
+              <div className="summary-icon">🎯</div>
 
               <div>
-                <strong>CareerMatch</strong>
-                <p>Ready for analysis</p>
+                <strong>Job Matching</strong>
+                <p>
+                  {matchingLoading
+                    ? "Finding matches..."
+                    : `${jobMatches.length} matches found`}
+                </p>
               </div>
             </div>
           </div>
@@ -262,10 +348,14 @@ function App() {
             <div className="resume-card-header">
               <div>
                 <h2>Extracted Resume</h2>
-                <p>Information extracted from your resume</p>
+                <p>
+                  Information extracted from your resume
+                </p>
               </div>
 
-              <span className="success">✓ Parsed</span>
+              <span className="success">
+                ✓ Parsed
+              </span>
             </div>
 
             <div className="resume-text">
@@ -273,25 +363,93 @@ function App() {
                 <div className="parsed-resume">
                   <section>
                     <h3>Personal Information</h3>
-                    <p><strong>Name:</strong> {result.resume.personal_info?.name || "N/A"}</p>
-                    <p><strong>Course:</strong> {result.resume.personal_info?.course || "N/A"}</p>
-                    <p><strong>Email:</strong> {result.resume.personal_info?.email || "N/A"}</p>
-                    <p><strong>Phone:</strong> {result.resume.personal_info?.phone || "N/A"}</p>
-                    <p><strong>GitHub:</strong> {result.resume.personal_info?.github || "N/A"}</p>
-                    <p><strong>LinkedIn:</strong> {result.resume.personal_info?.linkedin || "N/A"}</p>
+
+                    <p>
+                      <strong>Name:</strong>{" "}
+                      {result.resume.personal_info?.name ||
+                        "N/A"}
+                    </p>
+
+                    <p>
+                      <strong>Course:</strong>{" "}
+                      {result.resume.personal_info?.course ||
+                        "N/A"}
+                    </p>
+
+                    <p>
+                      <strong>Email:</strong>{" "}
+                      {result.resume.personal_info?.email ||
+                        "N/A"}
+                    </p>
+
+                    <p>
+                      <strong>Phone:</strong>{" "}
+                      {result.resume.personal_info?.phone ||
+                        "N/A"}
+                    </p>
+
+                    <p>
+                      <strong>GitHub:</strong>{" "}
+                      {result.resume.personal_info?.github ||
+                        "N/A"}
+                    </p>
+
+                    <p>
+                      <strong>LinkedIn:</strong>{" "}
+                      {result.resume.personal_info?.linkedin ||
+                        "N/A"}
+                    </p>
                   </section>
 
                   <section>
                     <h3>Education</h3>
+
                     {result.resume.education?.length ? (
-                      result.resume.education.map((item, index) => (
-                        <div key={index}>
-                          <p><strong>{item.institution || "Institution"}</strong></p>
-                          {item.degree && <p>{item.degree}</p>}
-                          {item.location && <p>{item.location}</p>}
-                          {item.date && <p>{item.date}</p>}
-                        </div>
-                      ))
+                      result.resume.education.map(
+                        (item, index) => (
+                          <div
+                            className="resume-entry"
+                            key={index}
+                          >
+                            <p>
+                              <strong>
+                                {item.degree ||
+                                  "Education"}
+                              </strong>
+                            </p>
+
+                            {item.institution && (
+                              <p>
+                                {item.institution}
+                              </p>
+                            )}
+
+                            {item.location && (
+                              <p>
+                                {item.location}
+                              </p>
+                            )}
+
+                            {item.duration && (
+                              <p>
+                                {item.duration}
+                              </p>
+                            )}
+
+                            {item.grade && (
+                              <p>
+                                Grade: {item.grade}
+                              </p>
+                            )}
+
+                            {item.details && (
+                              <p>
+                                {item.details}
+                              </p>
+                            )}
+                          </div>
+                        )
+                      )
                     ) : (
                       <p>N/A</p>
                     )}
@@ -299,16 +457,66 @@ function App() {
 
                   <section>
                     <h3>Experience</h3>
+
                     {result.resume.experience?.length ? (
-                      result.resume.experience.map((item, index) => (
-                        <div key={index}>
-                          <p>
-                            <strong>{item.role || "Role"}</strong>
-                            {item.company ? ` — ${item.company}` : ""}
-                          </p>
-                          {item.description && <p>{item.description}</p>}
-                        </div>
-                      ))
+                      result.resume.experience.map(
+                        (item, index) => (
+                          <div
+                            className="resume-entry"
+                            key={index}
+                          >
+                            <p>
+                              <strong>
+                                {item.role || "Role"}
+                              </strong>
+                            </p>
+
+                            {item.company && (
+                              <p>
+                                {item.company}
+                              </p>
+                            )}
+
+                            {item.location && (
+                              <p>
+                                {item.location}
+                              </p>
+                            )}
+
+                            {item.duration && (
+                              <p>
+                                {item.duration}
+                              </p>
+                            )}
+
+                            {item.employment_type && (
+                              <p>
+                                {item.employment_type}
+                              </p>
+                            )}
+
+                            {item.responsibilities?.length >
+                              0 && (
+                              <ul>
+                                {item.responsibilities.map(
+                                  (
+                                    responsibility,
+                                    responsibilityIndex
+                                  ) => (
+                                    <li
+                                      key={
+                                        responsibilityIndex
+                                      }
+                                    >
+                                      {responsibility}
+                                    </li>
+                                  )
+                                )}
+                              </ul>
+                            )}
+                          </div>
+                        )
+                      )
                     ) : (
                       <p>N/A</p>
                     )}
@@ -316,13 +524,29 @@ function App() {
 
                   <section>
                     <h3>Projects</h3>
+
                     {result.resume.projects?.length ? (
-                      result.resume.projects.map((item, index) => (
-                        <div key={index}>
-                          <p><strong>{item.name || "Project"}</strong></p>
-                          {item.description && <p>{item.description}</p>}
-                        </div>
-                      ))
+                      result.resume.projects.map(
+                        (item, index) => (
+                          <div
+                            className="resume-entry"
+                            key={index}
+                          >
+                            <p>
+                              <strong>
+                                {item.name ||
+                                  "Project"}
+                              </strong>
+                            </p>
+
+                            {item.description && (
+                              <p>
+                                {item.description}
+                              </p>
+                            )}
+                          </div>
+                        )
+                      )
                     ) : (
                       <p>N/A</p>
                     )}
@@ -330,43 +554,75 @@ function App() {
 
                   <section>
                     <h3>Technical Skills</h3>
+
                     <p>
                       <strong>Languages:</strong>{" "}
-                      {result.resume.technical_skills?.languages?.join(", ") || "N/A"}
+                      {result.resume.technical_skills
+                        ?.languages?.join(", ") ||
+                        "N/A"}
                     </p>
+
                     <p>
-                      <strong>Developer Tools:</strong>{" "}
-                      {result.resume.technical_skills?.developer_tools?.join(", ") || "N/A"}
+                      <strong>
+                        Developer Tools:
+                      </strong>{" "}
+                      {result.resume.technical_skills
+                        ?.developer_tools?.join(", ") ||
+                        "N/A"}
                     </p>
+
                     <p>
                       <strong>Frameworks:</strong>{" "}
-                      {result.resume.technical_skills?.frameworks?.join(", ") || "N/A"}
+                      {result.resume.technical_skills
+                        ?.frameworks?.join(", ") ||
+                        "N/A"}
                     </p>
+
                     <p>
-                      <strong>Cloud / Databases:</strong>{" "}
-                      {result.resume.technical_skills?.cloud_databases?.join(", ") || "N/A"}
+                      <strong>
+                        Cloud / Databases:
+                      </strong>{" "}
+                      {result.resume.technical_skills
+                        ?.cloud_databases?.join(", ") ||
+                        "N/A"}
                     </p>
+
                     <p>
                       <strong>Soft Skills:</strong>{" "}
-                      {result.resume.technical_skills?.soft_skills?.join(", ") || "N/A"}
+                      {result.resume.technical_skills
+                        ?.soft_skills?.join(", ") ||
+                        "N/A"}
                     </p>
+
                     <p>
                       <strong>Coursework:</strong>{" "}
-                      {result.resume.technical_skills?.coursework?.join(", ") || "N/A"}
+                      {result.resume.technical_skills
+                        ?.coursework?.join(", ") ||
+                        "N/A"}
                     </p>
+
                     <p>
-                      <strong>Areas of Interest:</strong>{" "}
-                      {result.resume.technical_skills?.areas_of_interest?.join(", ") || "N/A"}
+                      <strong>
+                        Areas of Interest:
+                      </strong>{" "}
+                      {result.resume.technical_skills
+                        ?.areas_of_interest?.join(", ") ||
+                        "N/A"}
                     </p>
                   </section>
 
                   <section>
                     <h3>Achievements</h3>
+
                     {result.resume.achievements?.length ? (
                       <ul>
-                        {result.resume.achievements.map((achievement, index) => (
-                          <li key={index}>{achievement}</li>
-                        ))}
+                        {result.resume.achievements.map(
+                          (achievement, index) => (
+                            <li key={index}>
+                              {achievement}
+                            </li>
+                          )
+                        )}
                       </ul>
                     ) : (
                       <p>N/A</p>
@@ -379,13 +635,182 @@ function App() {
             </div>
           </div>
 
+          <div className="job-matches-section">
+            <div className="job-matches-header">
+              <div>
+                <div className="badge">
+                  🎯 AI job matching
+                </div>
+
+                <h2>Jobs that fit you</h2>
+
+                <p>
+                  Opportunities ranked using your skills,
+                  experience and education.
+                </p>
+              </div>
+            </div>
+
+            {matchingLoading && (
+              <div className="matching-loading">
+                <span className="matching-spinner"></span>
+
+                <strong>
+                  Finding the best jobs for you...
+                </strong>
+
+                <p>
+                  Comparing your resume with available
+                  opportunities.
+                </p>
+              </div>
+            )}
+
+            {matchingError && (
+              <div className="error">
+                ⚠ {matchingError}
+              </div>
+            )}
+
+            {!matchingLoading &&
+              !matchingError &&
+              jobMatches.length > 0 && (
+                <div className="job-matches-grid">
+                  {jobMatches.map((job, index) => (
+                    <div
+                      className="job-card"
+                      key={job.job_id}
+                    >
+                      <div className="job-card-header">
+                        <div>
+                          {index === 0 && (
+                            <span className="best-match">
+                              Best match
+                            </span>
+                          )}
+
+                          <h3>{job.title}</h3>
+
+                          <p className="job-company">
+                            {job.company}
+                          </p>
+
+                          <p className="job-location">
+                            📍 {job.location}
+                          </p>
+                        </div>
+
+                        <div className="match-score">
+                          <strong>
+                            {job.match_score}%
+                          </strong>
+
+                          <span>Match</span>
+                        </div>
+                      </div>
+
+                      <p className="job-description">
+                        {job.description}
+                      </p>
+
+                      <div className="job-breakdown">
+                        <div>
+                          <span>Skills</span>
+
+                          <strong>
+                            {
+                              job.breakdown
+                                ?.required_skills
+                            }
+                            %
+                          </strong>
+                        </div>
+
+                        <div>
+                          <span>Experience</span>
+
+                          <strong>
+                            {
+                              job.breakdown
+                                ?.experience
+                            }
+                            %
+                          </strong>
+                        </div>
+
+                        <div>
+                          <span>Education</span>
+
+                          <strong>
+                            {
+                              job.breakdown
+                                ?.education
+                            }
+                            %
+                          </strong>
+                        </div>
+                      </div>
+
+                      {job.matched_skills?.length >
+                        0 && (
+                        <div className="job-skills">
+                          <h4>
+                            ✓ Matching skills
+                          </h4>
+
+                          <div className="skill-tags">
+                            {job.matched_skills.map(
+                              (skill) => (
+                                <span key={skill}>
+                                  {skill}
+                                </span>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {job.missing_skills?.length >
+                        0 && (
+                        <div className="job-skills missing">
+                          <h4>
+                            Skills to improve
+                          </h4>
+
+                          <div className="skill-tags">
+                            {job.missing_skills.map(
+                              (skill) => (
+                                <span key={skill}>
+                                  {skill}
+                                </span>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+            {!matchingLoading &&
+              !matchingError &&
+              jobMatches.length === 0 && (
+                <div className="matching-empty">
+                  No matching jobs were found.
+                </div>
+              )}
+          </div>
+
           <div className="next-section">
-            <h2>Resume successfully parsed 🎉</h2>
+            <h2>
+              Resume successfully parsed 🎉
+            </h2>
 
             <p>
-              Your resume has been extracted successfully. The next step is to
-              identify your skills, education, experience and projects and match
-              them with relevant jobs.
+              Your resume has been extracted successfully.
+              CareerMatch has also analyzed your profile
+              against available job opportunities.
             </p>
           </div>
         </main>
@@ -403,7 +828,9 @@ function App() {
         >
           <div
             className="qr-modal"
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) =>
+              event.stopPropagation()
+            }
           >
             <button
               className="qr-close"
@@ -417,7 +844,8 @@ function App() {
             <h2>Buy me a coffee</h2>
 
             <p>
-              If CareerMatch helped you, consider supporting us!
+              If CareerMatch helped you, consider
+              supporting us!
             </p>
 
             <img
@@ -440,7 +868,9 @@ function App() {
         >
           <div
             className="how-modal"
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) =>
+              event.stopPropagation()
+            }
           >
             <button
               className="how-close"
@@ -451,7 +881,9 @@ function App() {
 
             <div className="how-header">
               <div className="how-icon">✦</div>
+
               <h2>How it works</h2>
+
               <p>
                 From your resume to your next opportunity.
               </p>
@@ -459,60 +891,66 @@ function App() {
 
             <div className="how-steps">
               <div className="how-step">
-                <div>
-                  <strong>Upload Resume</strong>
-                  <p>Upload your PDF, DOC, or DOCX resume.</p>
-                </div>
+                <strong>Upload Resume</strong>
+                <p>
+                  Upload your PDF, DOC, or DOCX resume.
+                </p>
               </div>
 
               <div className="step-arrow">↓</div>
 
               <div className="how-step">
-                <div>
-                  <strong>AI Profile Analysis</strong>
-                  <p>Extract your skills, experience and education.</p>
-                </div>
+                <strong>AI Profile Analysis</strong>
+                <p>
+                  Extract your skills, experience and
+                  education.
+                </p>
               </div>
 
               <div className="step-arrow">↓</div>
 
               <div className="how-step">
-                <div>
-                  <strong>Job Matching</strong>
-                  <p>Find opportunities that match your profile.</p>
-                </div>
+                <strong>Job Matching</strong>
+                <p>
+                  Find opportunities that match your
+                  profile.
+                </p>
               </div>
 
               <div className="step-arrow">↓</div>
 
               <div className="how-step">
-                <div>
-                  <strong>Skill Gap Analysis</strong>
-                  <p>Discover the skills you need to improve.</p>
-                </div>
+                <strong>Skill Gap Analysis</strong>
+                <p>
+                  Discover the skills you need to improve.
+                </p>
               </div>
 
               <div className="step-arrow">↓</div>
 
               <div className="how-step">
-                <div>
-                  <strong>Mock Interview</strong>
-                  <p>Practice interviews and prepare with confidence.</p>
-                </div>
+                <strong>Mock Interview</strong>
+                <p>
+                  Practice interviews and prepare with
+                  confidence.
+                </p>
               </div>
 
               <div className="step-arrow">↓</div>
 
-              <div className="how-step"> 
-                <div>
-                  <strong>Performance Score</strong>
-                  <p>Track your readiness and improve your performance.</p>
-                </div>
+              <div className="how-step">
+                <strong>Performance Score</strong>
+                <p>
+                  Track your readiness and improve your
+                  performance.
+                </p>
               </div>
             </div>
 
             <div className="how-final">
-              <strong>Get better. Get ready. Get hired.</strong>
+              <strong>
+                Get better. Get ready. Get hired.
+              </strong>
             </div>
           </div>
         </div>
@@ -522,12 +960,18 @@ function App() {
 }
 
 function formatFileSize(bytes) {
-  if (bytes === 0) return "0 Bytes";
+  if (bytes === 0) {
+    return "0 Bytes";
+  }
 
   const units = ["Bytes", "KB", "MB", "GB"];
-  const index = Math.floor(Math.log(bytes) / Math.log(1024));
+  const index = Math.floor(
+    Math.log(bytes) / Math.log(1024)
+  );
 
-  return `${(bytes / Math.pow(1024, index)).toFixed(1)} ${units[index]}`;
+  return `${(
+    bytes / Math.pow(1024, index)
+  ).toFixed(1)} ${units[index]}`;
 }
 
 export default App;

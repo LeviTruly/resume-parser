@@ -1,14 +1,35 @@
 import json
+import os
+
+from dotenv import load_dotenv
 from google import genai
 
-client = genai.Client()
+
+env_path = os.path.join(
+    os.path.dirname(__file__),
+    "..",
+    ".env"
+)
+
+load_dotenv(env_path)
+
+api_key = os.getenv("GEMINI_API_KEY")
+
+if not api_key:
+    raise RuntimeError(
+        "GEMINI_API_KEY is not configured."
+    )
+
+client = genai.Client(
+    api_key=api_key
+)
 
 
 def get_ai_match(resume, job):
     prompt = f"""
-You are a resume and job matching assistant.
+You are a professional resume and job matching assistant.
 
-Compare this resume with this job.
+Compare the candidate resume with the job.
 
 RESUME:
 {json.dumps(resume, indent=2)}
@@ -17,12 +38,15 @@ JOB:
 {json.dumps(job, indent=2)}
 
 Give:
+
 1. A semantic match score from 0 to 100
-2. Three strengths
-3. Three weaknesses
+2. Exactly three strengths
+3. Exactly three weaknesses
 4. A short explanation
 
-Return ONLY valid JSON in this format:
+Return ONLY valid JSON.
+
+Use exactly:
 
 {{
     "score": 0,
@@ -30,20 +54,24 @@ Return ONLY valid JSON in this format:
     "weaknesses": [],
     "explanation": ""
 }}
+
+Do not include Markdown.
+Do not include code fences.
 """
 
     response = client.models.generate_content(
         model="gemini-3.6-flash",
-        contents=prompt
+        contents=prompt,
+        config={
+            "response_mime_type": "application/json"
+        }
     )
 
-    return json.loads(response.text)
-with open("test_resume.json", "r") as file:
-    resume = json.load(file)
+    if not response.text:
+        raise ValueError(
+            "AI matcher returned an empty response."
+        )
 
-with open("test_job.json", "r") as file:
-    job = json.load(file)
-
-result = get_ai_match(resume, job)
-
-print(json.dumps(result, indent=2))
+    return json.loads(
+        response.text
+    )
