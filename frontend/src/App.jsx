@@ -2,7 +2,7 @@ import { useState } from "react";
 import "./App.css";
 import qrCode from "./assets/qr-code.png";
 
-const API_URL = "http://192.168.1.20:8000";
+const API_URL = "http://127.0.0.1:8000";
 
 function App() {
   const [file, setFile] = useState(null);
@@ -269,7 +269,113 @@ function App() {
             </div>
 
             <div className="resume-text">
-              {result.text || "No extracted text was returned by the backend."}
+              {result.resume ? (
+                <div className="parsed-resume">
+                  <section>
+                    <h3>Personal Information</h3>
+                    <p><strong>Name:</strong> {result.resume.personal_info?.name || "N/A"}</p>
+                    <p><strong>Course:</strong> {result.resume.personal_info?.course || "N/A"}</p>
+                    <p><strong>Email:</strong> {result.resume.personal_info?.email || "N/A"}</p>
+                    <p><strong>Phone:</strong> {result.resume.personal_info?.phone || "N/A"}</p>
+                    <p><strong>GitHub:</strong> {result.resume.personal_info?.github || "N/A"}</p>
+                    <p><strong>LinkedIn:</strong> {result.resume.personal_info?.linkedin || "N/A"}</p>
+                  </section>
+
+                  <section>
+                    <h3>Education</h3>
+                    {result.resume.education?.length ? (
+                      result.resume.education.map((item, index) => (
+                        <div key={index}>
+                          <p><strong>{item.institution || "Institution"}</strong></p>
+                          {item.degree && <p>{item.degree}</p>}
+                          {item.location && <p>{item.location}</p>}
+                          {item.date && <p>{item.date}</p>}
+                        </div>
+                      ))
+                    ) : (
+                      <p>N/A</p>
+                    )}
+                  </section>
+
+                  <section>
+                    <h3>Experience</h3>
+                    {result.resume.experience?.length ? (
+                      result.resume.experience.map((item, index) => (
+                        <div key={index}>
+                          <p>
+                            <strong>{item.role || "Role"}</strong>
+                            {item.company ? ` — ${item.company}` : ""}
+                          </p>
+                          {item.description && <p>{item.description}</p>}
+                        </div>
+                      ))
+                    ) : (
+                      <p>N/A</p>
+                    )}
+                  </section>
+
+                  <section>
+                    <h3>Projects</h3>
+                    {result.resume.projects?.length ? (
+                      result.resume.projects.map((item, index) => (
+                        <div key={index}>
+                          <p><strong>{item.name || "Project"}</strong></p>
+                          {item.description && <p>{item.description}</p>}
+                        </div>
+                      ))
+                    ) : (
+                      <p>N/A</p>
+                    )}
+                  </section>
+
+                  <section>
+                    <h3>Technical Skills</h3>
+                    <p>
+                      <strong>Languages:</strong>{" "}
+                      {result.resume.technical_skills?.languages?.join(", ") || "N/A"}
+                    </p>
+                    <p>
+                      <strong>Developer Tools:</strong>{" "}
+                      {result.resume.technical_skills?.developer_tools?.join(", ") || "N/A"}
+                    </p>
+                    <p>
+                      <strong>Frameworks:</strong>{" "}
+                      {result.resume.technical_skills?.frameworks?.join(", ") || "N/A"}
+                    </p>
+                    <p>
+                      <strong>Cloud / Databases:</strong>{" "}
+                      {result.resume.technical_skills?.cloud_databases?.join(", ") || "N/A"}
+                    </p>
+                    <p>
+                      <strong>Soft Skills:</strong>{" "}
+                      {result.resume.technical_skills?.soft_skills?.join(", ") || "N/A"}
+                    </p>
+                    <p>
+                      <strong>Coursework:</strong>{" "}
+                      {result.resume.technical_skills?.coursework?.join(", ") || "N/A"}
+                    </p>
+                    <p>
+                      <strong>Areas of Interest:</strong>{" "}
+                      {result.resume.technical_skills?.areas_of_interest?.join(", ") || "N/A"}
+                    </p>
+                  </section>
+
+                  <section>
+                    <h3>Achievements</h3>
+                    {result.resume.achievements?.length ? (
+                      <ul>
+                        {result.resume.achievements.map((achievement, index) => (
+                          <li key={index}>{achievement}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>N/A</p>
+                    )}
+                  </section>
+                </div>
+              ) : (
+                "No parsed resume data was returned by the backend."
+              )}
             </div>
           </div>
 
