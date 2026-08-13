@@ -9,7 +9,7 @@ from ai_parser import parse_resume_with_ai
 
 
 app = FastAPI(
-    title="CareerMatch Resume Parser API"
+    title="AI Resume Parser lol"
 )
 
 MAX_FILE_SIZE = 5 * 1024 * 1024
