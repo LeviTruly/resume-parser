@@ -3,17 +3,14 @@ import json
 from dotenv import load_dotenv
 from google import genai
 
-# Load .env from the project root
 env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
 load_dotenv(env_path)
 
-# Get Gemini API key
 api_key = os.getenv("GEMINI_API_KEY")
 
 if not api_key:
     raise RuntimeError("GEMINI_API_KEY is not configured.")
 
-# Create Gemini client
 client = genai.Client(api_key=api_key)
 
 
