@@ -1,0 +1,26 @@
+from fastapi import FastAPI, UploadFile, File
+import tempfile
+from pdf_parser import extract_text_from_pdf
+
+app = FastAPI()
+
+
+@app.get("/")
+def home():
+    return {
+        "message": "Resume Parser API is running"
+    }
+
+
+@app.post("/resume/parse")
+async def upload_resume(file: UploadFile = File(...)):
+    with tempfile.NamedTemporaryFile(delete = False, suffix = ".pdf") as temp_file:
+        content = await file.read()
+        temp_file.write(content)
+        temp_file_path = temp_file.name
+    text = extract_text_from_pdf(temp_file_path) 
+    return {
+        "filename": file.filename,
+        "text": text,
+        "message": "Resume uploaded successfully"
+    }
