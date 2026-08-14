@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 import qrCode from "./assets/qr-code.png";
 
@@ -8,6 +8,7 @@ function App() {
   const [file, setFile] = useState(null);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [loadingStage, setLoadingStage] = useState(0);
   const [error, setError] = useState("");
   const [showQR, setShowQR] = useState(false);
   const [showHowItWorks, setShowHowItWorks] = useState(false);
@@ -15,6 +16,80 @@ function App() {
   const [jobMatches, setJobMatches] = useState([]);
   const [matchingLoading, setMatchingLoading] = useState(false);
   const [matchingError, setMatchingError] = useState("");
+
+  const [view, setView] = useState("candidate");
+  const [dbJobs, setDbJobs] = useState([]);
+  const [jobsLoading, setJobsLoading] = useState(false);
+  const [jobsError, setJobsError] = useState("");
+  const [addJobLoading, setAddJobLoading] = useState(false);
+  const [addJobSuccess, setAddJobSuccess] = useState(false);
+  const [addJobError, setAddJobError] = useState("");
+
+  const [interviewSessionId, setInterviewSessionId] = useState("");
+  const [interviewQuestion, setInterviewQuestion] = useState("");
+  const [interviewAnswer, setInterviewAnswer] = useState("");
+  const [interviewHistory, setInterviewHistory] = useState([]);
+  const [interviewLoading, setInterviewLoading] = useState(false);
+  const [interviewError, setInterviewError] = useState("");
+  const [interviewEvaluation, setInterviewEvaluation] = useState(null);
+  const [interviewFinished, setInterviewFinished] = useState(false);
+
+  const [newJob, setNewJob] = useState({
+    title: "",
+    company: "",
+    location: "",
+    description: "",
+    min_experience: 0,
+    required_skills: "",
+    preferred_skills: ""
+  });
+
+  const fetchJobs = async () => {
+    setJobsLoading(true);
+    setJobsError("");
+    try {
+      const response = await fetch(`${API_URL}/jobs`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Failed to fetch jobs");
+      setDbJobs(data.jobs || []);
+    } catch (err) {
+      setJobsError(err.message || "Failed to fetch jobs");
+    } finally {
+      setJobsLoading(false);
+    }
+  };
+
+  const handleAddJobSubmit = async (e) => {
+    e.preventDefault();
+    setAddJobLoading(true);
+    setAddJobError("");
+    setAddJobSuccess(false);
+    try {
+      const response = await fetch(`${API_URL}/jobs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newJob)
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Failed to post job");
+      setAddJobSuccess(true);
+      setNewJob({
+        title: "",
+        company: "",
+        location: "",
+        description: "",
+        min_experience: 0,
+        required_skills: "",
+        preferred_skills: ""
+      });
+      fetchJobs();
+    } catch (err) {
+      setAddJobError(err.message || "Failed to post job");
+    } finally {
+      setAddJobLoading(false);
+    }
+  };
+
 
   const handleFileChange = (event) => {
     const selectedFile = event.target.files[0];
@@ -45,6 +120,7 @@ function App() {
     setJobMatches([]);
     setMatchingError("");
     setError("");
+    resetInterview();
   };
 
   const findJobMatches = async (resumeData) => {
@@ -80,6 +156,162 @@ function App() {
     } finally {
       setMatchingLoading(false);
     }
+  };
+
+  useEffect(() => {
+    if (!loading) {
+      setLoadingStage(0);
+      return undefined;
+    }
+
+    setLoadingStage(0);
+
+    const timer = setInterval(() => {
+      setLoadingStage((stage) => Math.min(stage + 1, 2));
+    }, 1700);
+
+    return () => clearInterval(timer);
+  }, [loading]);
+
+  const startMockInterview = async () => {
+    if (!result?.resume) {
+      setInterviewError("Please analyze a resume before starting the mock interview.");
+      return;
+    }
+
+    setInterviewLoading(true);
+    setInterviewError("");
+    setInterviewEvaluation(null);
+    setInterviewFinished(false);
+    setInterviewAnswer("");
+
+    const sessionId =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    try {
+      const response = await fetch(`${API_URL}/api/start`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          session_id: sessionId,
+          parsed_resume: JSON.stringify(result.resume),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || "Could not start the mock interview.");
+      }
+
+      setInterviewSessionId(sessionId);
+      setInterviewQuestion(data.question || "");
+      setInterviewHistory([
+        {
+          role: "assistant",
+          content: data.question || "",
+        },
+      ]);
+    } catch (err) {
+      setInterviewError(
+        err.message || "Could not connect to the mock interview service."
+      );
+    } finally {
+      setInterviewLoading(false);
+    }
+  };
+
+  const submitInterviewAnswer = async () => {
+    if (!interviewSessionId || !interviewAnswer.trim()) {
+      return;
+    }
+
+    const answer = interviewAnswer.trim();
+    setInterviewLoading(true);
+    setInterviewError("");
+
+    try {
+      const response = await fetch(`${API_URL}/api/respond`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          session_id: interviewSessionId,
+          user_answer: answer,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || "Could not submit your answer.");
+      }
+
+      setInterviewHistory((history) => [
+        ...history,
+        { role: "user", content: answer },
+        { role: "assistant", content: data.question || "" },
+      ]);
+      setInterviewQuestion(data.question || "");
+      setInterviewAnswer("");
+    } catch (err) {
+      setInterviewError(
+        err.message || "Could not submit your interview answer."
+      );
+    } finally {
+      setInterviewLoading(false);
+    }
+  };
+
+  const finishMockInterview = async () => {
+    if (!interviewSessionId) {
+      return;
+    }
+
+    setInterviewLoading(true);
+    setInterviewError("");
+
+    try {
+      const response = await fetch(
+        `${API_URL}/api/evaluate?session_id=${encodeURIComponent(
+          interviewSessionId
+        )}`,
+        {
+          method: "POST",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || "Could not evaluate the interview.");
+      }
+
+      setInterviewEvaluation(data);
+      setInterviewFinished(true);
+    } catch (err) {
+      setInterviewError(
+        err.message || "Could not evaluate the mock interview."
+      );
+    } finally {
+      setInterviewLoading(false);
+    }
+  };
+
+  const resetInterview = () => {
+    setInterviewSessionId("");
+    setInterviewQuestion("");
+    setInterviewAnswer("");
+    setInterviewHistory([]);
+    setInterviewLoading(false);
+    setInterviewError("");
+    setInterviewEvaluation(null);
+    setInterviewFinished(false);
   };
 
   const uploadResume = async () => {
@@ -135,6 +367,7 @@ function App() {
     setMatchingError("");
     setError("");
     setLoading(false);
+    setLoadingStage(0);
     setMatchingLoading(false);
 
     const input = document.getElementById("resume-input");
@@ -153,6 +386,19 @@ function App() {
         </div>
 
         <div className="nav-links">
+
+          <button
+            className="add-job-nav-button"
+            onClick={() => {
+              setView(view === "employer" ? "candidate" : "employer");
+              if (view !== "employer") {
+                fetchJobs();
+              }
+            }}
+          >
+            {view === "employer" ? "← Back to Parse" : "💼 Add Job"}
+          </button>
+
           <button
             className="how-button"
             onClick={() => setShowHowItWorks(true)}
@@ -167,9 +413,197 @@ function App() {
             ☕ Buy me a coffee
           </button>
         </div>
+
       </nav>
 
-      {!result ? (
+      {view === "employer" ? (
+        <main className="employer-dashboard">
+          <div className="employer-header">
+            <div className="badge">
+              <span>✦</span>
+              Employer Portal
+            </div>
+
+            <h1>
+              Post jobs,
+              <span> find candidates.</span>
+            </h1>
+
+            <p className="subtitle">
+              Add job opportunities stored in the PostgreSQL database to match with candidate resumes.
+            </p>
+          </div>
+
+          <div className="employer-grid">
+            <div className="post-job-card">
+              <h2>Post a New Job</h2>
+              <form onSubmit={handleAddJobSubmit} className="job-form">
+                <div className="form-group">
+                  <label htmlFor="job-title">Job Title *</label>
+                  <input
+                    id="job-title"
+                    type="text"
+                    required
+                    value={newJob.title}
+                    onChange={(e) => setNewJob({ ...newJob, title: e.target.value })}
+                    placeholder="e.g. Senior Software Engineer"
+                  />
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="job-company">Company Name *</label>
+                    <input
+                      id="job-company"
+                      type="text"
+                      required
+                      value={newJob.company}
+                      onChange={(e) => setNewJob({ ...newJob, company: e.target.value })}
+                      placeholder="e.g. Google"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="job-location">Location *</label>
+                    <input
+                      id="job-location"
+                      type="text"
+                      required
+                      value={newJob.location}
+                      onChange={(e) => setNewJob({ ...newJob, location: e.target.value })}
+                      placeholder="e.g. Surat, Gujarat"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="job-exp">Min Experience (Years)</label>
+                  <input
+                    id="job-exp"
+                    type="number"
+                    min="0"
+                    value={newJob.min_experience}
+                    onChange={(e) => setNewJob({ ...newJob, min_experience: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="job-req-skills">Required Skills * (comma-separated)</label>
+                  <input
+                    id="job-req-skills"
+                    type="text"
+                    required
+                    value={newJob.required_skills}
+                    onChange={(e) => setNewJob({ ...newJob, required_skills: e.target.value })}
+                    placeholder="e.g. React, Python, PostgreSQL"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="job-pref-skills">Preferred Skills (comma-separated)</label>
+                  <input
+                    id="job-pref-skills"
+                    type="text"
+                    value={newJob.preferred_skills}
+                    onChange={(e) => setNewJob({ ...newJob, preferred_skills: e.target.value })}
+                    placeholder="e.g. Docker, AWS, AI"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="job-desc">Job Description</label>
+                  <textarea
+                    id="job-desc"
+                    rows="4"
+                    value={newJob.description}
+                    onChange={(e) => setNewJob({ ...newJob, description: e.target.value })}
+                    placeholder="Describe the job requirements and expectations..."
+                  />
+                </div>
+
+                <button type="submit" className="post-button" disabled={addJobLoading}>
+                  {addJobLoading ? "Posting..." : "Post Job Listing →"}
+                </button>
+
+                {addJobSuccess && (
+                  <p className="success-message-text">✓ Job posted successfully to PostgreSQL database!</p>
+                )}
+
+                {addJobError && (
+                  <p className="error-message-text">⚠ {addJobError}</p>
+                )}
+              </form>
+            </div>
+
+            <div className="jobs-list-card">
+              <h2>Current Openings ({dbJobs.length})</h2>
+
+              {jobsLoading && (
+                <div className="jobs-loading">
+                  <span className="spinner"></span>
+                  Loading jobs from PostgreSQL...
+                </div>
+              )}
+
+              {jobsError && (
+                <div className="error">
+                  ⚠ {jobsError}
+                </div>
+              )}
+
+              {!jobsLoading && !jobsError && dbJobs.length === 0 && (
+                <div className="no-jobs">
+                  No job postings found. Post one using the form on the left!
+                </div>
+              )}
+
+              <div className="jobs-list-scroll">
+                {dbJobs.map((job) => (
+                  <div key={job.job_id} className="employer-job-card">
+                    <div className="employer-job-header">
+                      <h3>{job.title}</h3>
+                      <span className="job-company-tag">{job.company}</span>
+                    </div>
+
+                    <p className="job-location-exp">
+                      📍 {job.location} • 💼 {job.min_experience} Yrs Min Experience
+                    </p>
+
+                    {job.description && (
+                      <p className="job-desc-text">{job.description}</p>
+                    )}
+
+                    <div className="skills-wrap">
+                      <div className="skill-section">
+                        <strong>Required Skills:</strong>
+                        <div className="skill-tags">
+                          {job.required_skills.map((s) => (
+                            <span key={s} className="req-skill">{s}</span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {job.preferred_skills?.length > 0 && (
+                        <div className="skill-section">
+                          <strong>Preferred Skills:</strong>
+                          <div className="skill-tags">
+                            {job.preferred_skills.map((s) => (
+                              <span key={s} className="pref-skill">{s}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </main>
+      ) : (
+        <>
+          {!result ? (
+
         <main className="hero">
           <div className="badge">
             <span>✦</span>
@@ -208,7 +642,7 @@ function App() {
               <input
                 id="resume-input"
                 type="file"
-                accept=".pdf,.doc,.docx"
+                accept=".pdf"
                 onChange={handleFileChange}
                 hidden
               />
@@ -233,12 +667,70 @@ function App() {
 
             {loading && (
               <div className="loading">
-                <div className="loading-bar">
-                  <div className="loading-progress"></div>
+                <div className="loading-orb">
+                  <div className="loading-orb-inner">✦</div>
                 </div>
 
-                <p>
-                  Extracting information from your resume...
+                <div className="loading-title">
+                  Analyzing your resume
+                  <span className="loading-dots">
+                    <span>.</span><span>.</span><span>.</span>
+                  </span>
+                </div>
+
+                <div className="loading-steps">
+                  {[
+                    {
+                      icon: "🔍",
+                      title: "Reading your resume",
+                      text: "Extracting the important information",
+                    },
+                    {
+                      icon: "🧠",
+                      title: "Understanding your skills",
+                      text: "Identifying your experience and strengths",
+                    },
+                    {
+                      icon: "🎯",
+                      title: "Finding compatible opportunities",
+                      text: "Comparing you with available jobs",
+                    },
+                  ].map((step, index) => (
+                    <div
+                      key={step.title}
+                      className={`loading-step ${
+                        index === loadingStage ? "active" : ""
+                      } ${index < loadingStage ? "complete" : ""}`}
+                    >
+                      <div className="loading-step-icon">
+                        {index < loadingStage ? "✓" : step.icon}
+                      </div>
+
+                      <div className="loading-step-copy">
+                        <strong>{step.title}</strong>
+                        <span>{step.text}</span>
+                      </div>
+
+                      <div className="loading-step-pulse"></div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="loading-bar">
+                  <div
+                    className="loading-progress"
+                    style={{
+                      width: `${Math.min(95, 25 + loadingStage * 30)}%`,
+                    }}
+                  ></div>
+                </div>
+
+                <p className="loading-hint">
+                  {loadingStage === 0
+                    ? "Scanning every section of your resume..."
+                    : loadingStage === 1
+                    ? "Building a clearer picture of your profile..."
+                    : "Almost there — checking your best opportunities..."}
                 </p>
               </div>
             )}
@@ -802,6 +1294,129 @@ function App() {
               )}
           </div>
 
+          <section className="interview-section">
+            <div className="interview-header">
+              <div>
+                <div className="badge">🎤 AI mock interviewer</div>
+                <h2>Practice before the real interview</h2>
+                <p>
+                  Your interview questions are generated from the resume you
+                  just analyzed.
+                </p>
+              </div>
+
+              {!interviewSessionId && (
+                <button
+                  className="interview-start-button"
+                  onClick={startMockInterview}
+                  disabled={interviewLoading}
+                >
+                  {interviewLoading ? "Starting..." : "Start Mock Interview →"}
+                </button>
+              )}
+            </div>
+
+            {interviewError && (
+              <div className="error interview-error">⚠ {interviewError}</div>
+            )}
+
+            {interviewSessionId && !interviewFinished && (
+              <div className="interview-card">
+                <div className="interview-progress">
+                  <span>Live interview</span>
+                  <span>{interviewHistory.filter((item) => item.role === "user").length} answers</span>
+                </div>
+
+                <div className="interview-history">
+                  {interviewHistory.map((message, index) => (
+                    <div
+                      key={`${message.role}-${index}`}
+                      className={`interview-message ${message.role}`}
+                    >
+                      <span className="interview-label">
+                        {message.role === "assistant" ? "AI Interviewer" : "You"}
+                      </span>
+                      <p>{message.content}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="interview-answer-box">
+                  <textarea
+                    value={interviewAnswer}
+                    onChange={(e) => setInterviewAnswer(e.target.value)}
+                    placeholder="Type your answer here..."
+                    rows="5"
+                    disabled={interviewLoading}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                        submitInterviewAnswer();
+                      }
+                    }}
+                  />
+
+                  <div className="interview-actions">
+                    <span>Ctrl/Cmd + Enter to submit</span>
+                    <div>
+                      <button
+                        className="secondary-button"
+                        onClick={finishMockInterview}
+                        disabled={interviewLoading}
+                      >
+                        Finish & Evaluate
+                      </button>
+                      <button
+                        className="analyze-button interview-submit-button"
+                        onClick={submitInterviewAnswer}
+                        disabled={interviewLoading || !interviewAnswer.trim()}
+                      >
+                        {interviewLoading ? "Thinking..." : "Submit Answer →"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {interviewFinished && interviewEvaluation && (
+              <div className="interview-result-card">
+                <div className="interview-score">
+                  <span>Interview score</span>
+                  <strong>{interviewEvaluation.score}%</strong>
+                </div>
+
+                <div className="interview-feedback-grid">
+                  <div>
+                    <h3>Strengths</h3>
+                    <ul>
+                      {(interviewEvaluation.strengths || []).map((item, index) => (
+                        <li key={index}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h3>Areas to improve</h3>
+                    <ul>
+                      {(interviewEvaluation.improvements || []).map(
+                        (item, index) => (
+                          <li key={index}>{item}</li>
+                        )
+                      )}
+                    </ul>
+                  </div>
+                </div>
+
+                <button
+                  className="interview-start-button"
+                  onClick={resetInterview}
+                >
+                  Start Another Interview
+                </button>
+              </div>
+            )}
+          </section>
+
           <div className="next-section">
             <h2>
               Resume successfully parsed 🎉
@@ -814,6 +1429,8 @@ function App() {
             </p>
           </div>
         </main>
+          )}
+        </>
       )}
 
       <footer>

@@ -7,12 +7,18 @@ import os
 from pdf_parser import extract_text_from_pdf
 from ai_parser import parse_resume_with_ai
 from matcher import match_resume_to_job
+from db import init_db, get_all_jobs, add_job_posting
 from chatbot import router as chatbot_router
 
 
 app = FastAPI(
     title="AI Resume Parser"
 )
+
+
+@app.on_event("startup")
+def startup_event():
+    init_db()
 
 
 app.include_router(chatbot_router)
@@ -124,84 +130,13 @@ async def match_jobs(data: dict):
             detail="Resume data is required."
         )
 
-    jobs = [
-        {
-            "job_id": "accountant-001",
-            "title": "Junior Accountant",
-            "company": "CareerMatch Demo",
-            "location": "Ahmedabad, Gujarat",
-            "description": "Assist with accounting, billing, financial records and day-to-day administrative operations.",
-            "required_skills": [
-                "Tally ERP",
-                "MS Excel",
-                "Accounts",
-                "Billing"
-            ],
-            "preferred_skills": [
-                "Payroll",
-                "EPF",
-                "ESI"
-            ],
-            "min_experience": 0
-        },
-        {
-            "job_id": "accounts-002",
-            "title": "Accounts Executive",
-            "company": "CareerMatch Demo",
-            "location": "Ahmedabad, Gujarat",
-            "description": "Handle accounting records, billing support, Excel reporting and financial documentation.",
-            "required_skills": [
-                "Tally ERP",
-                "MS Excel",
-                "Accounts",
-                "Documentation"
-            ],
-            "preferred_skills": [
-                "Billing",
-                "Payroll",
-                "Compliance"
-            ],
-            "min_experience": 1
-        },
-        {
-            "job_id": "hr-003",
-            "title": "HR & Accounts Assistant",
-            "company": "CareerMatch Demo",
-            "location": "Ahmedabad, Gujarat",
-            "description": "Support recruitment coordination, employee documentation, payroll processing and administrative operations.",
-            "required_skills": [
-                "MS Excel",
-                "Documentation",
-                "Recruitment",
-                "Payroll"
-            ],
-            "preferred_skills": [
-                "EPF",
-                "ESI",
-                "Tally ERP"
-            ],
-            "min_experience": 0
-        },
-        {
-            "job_id": "admin-004",
-            "title": "Administrative Assistant",
-            "company": "CareerMatch Demo",
-            "location": "Ahmedabad, Gujarat",
-            "description": "Manage documentation, office administration, reports, records and general operational support.",
-            "required_skills": [
-                "MS Word",
-                "MS Excel",
-                "Documentation",
-                "Administrative"
-            ],
-            "preferred_skills": [
-                "MS PowerPoint",
-                "Accounts",
-                "Recruitment"
-            ],
-            "min_experience": 0
-        }
-    ]
+    try:
+        jobs = get_all_jobs()
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch jobs from database: {str(e)}"
+        )
 
     matches = []
 
@@ -236,3 +171,68 @@ async def match_jobs(data: dict):
     return {
         "matches": matches
     }
+
+
+@app.get("/jobs")
+def get_jobs():
+    try:
+        return {
+            "jobs": get_all_jobs()
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch jobs: {str(e)}"
+        )
+
+
+@app.post("/jobs")
+def add_job(job: dict):
+    title = job.get("title")
+    company = job.get("company")
+    location = job.get("location")
+    description = job.get("description", "")
+    min_experience = job.get("min_experience", 0)
+
+    if not title or not company or not location:
+        raise HTTPException(
+            status_code=400,
+            detail="Title, company, and location are required fields."
+        )
+
+    required_skills = job.get("required_skills", [])
+
+    if isinstance(required_skills, str):
+        required_skills = [
+            skill.strip()
+            for skill in required_skills.split(",")
+            if skill.strip()
+        ]
+
+    preferred_skills = job.get("preferred_skills", [])
+
+    if isinstance(preferred_skills, str):
+        preferred_skills = [
+            skill.strip()
+            for skill in preferred_skills.split(",")
+            if skill.strip()
+        ]
+
+    try:
+        added = add_job_posting({
+            "title": title,
+            "company": company,
+            "location": location,
+            "description": description,
+            "required_skills": required_skills,
+            "preferred_skills": preferred_skills,
+            "min_experience": int(min_experience)
+        })
+
+        return added
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to add job posting: {str(e)}"
+        )
