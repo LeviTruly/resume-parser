@@ -21,7 +21,7 @@ function App() {
 
     if (!selectedFile) return;
 
-    const allowedExtensions = [".pdf", ".doc", ".docx"];
+    const allowedExtensions = [".pdf"];
     const fileName = selectedFile.name.toLowerCase();
 
     const validFile = allowedExtensions.some((extension) =>
@@ -29,13 +29,13 @@ function App() {
     );
 
     if (!validFile) {
-      setError("Please upload a PDF, DOC, or DOCX file.");
+      setError("Please upload a PDF file.");
       setFile(null);
       return;
     }
 
-    if (selectedFile.size > 10 * 1024 * 1024) {
-      setError("File size must be less than 10 MB.");
+    if (selectedFile.size > 5 * 1024 * 1024) {
+      setError("File size must be less than 5 MB.");
       setFile(null);
       return;
     }
