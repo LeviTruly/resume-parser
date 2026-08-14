@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import "./App.css";
 import qrCode from "./assets/qr-code.png";
 
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`;
 
 function App() {
   const [file, setFile] = useState(null);
@@ -666,72 +666,77 @@ function App() {
             )}
 
             {loading && (
-              <div className="loading">
-                <div className="loading-orb">
-                  <div className="loading-orb-inner">✦</div>
+              <div className="resume-loading">
+                <div className="resume-loading-orb">
+                  <div className="resume-loading-orb-core">✦</div>
                 </div>
 
-                <div className="loading-title">
+                <div className="resume-loading-heading">
                   Analyzing your resume
-                  <span className="loading-dots">
-                    <span>.</span><span>.</span><span>.</span>
+                  <span className="resume-loading-dots">
+                    <span>.</span>
+                    <span>.</span>
+                    <span>.</span>
                   </span>
                 </div>
 
-                <div className="loading-steps">
+                <div className="resume-loading-steps">
                   {[
                     {
                       icon: "🔍",
                       title: "Reading your resume",
-                      text: "Extracting the important information",
                     },
                     {
                       icon: "🧠",
                       title: "Understanding your skills",
-                      text: "Identifying your experience and strengths",
                     },
                     {
                       icon: "🎯",
                       title: "Finding compatible opportunities",
-                      text: "Comparing you with available jobs",
                     },
-                  ].map((step, index) => (
-                    <div
-                      key={step.title}
-                      className={`loading-step ${
-                        index === loadingStage ? "active" : ""
-                      } ${index < loadingStage ? "complete" : ""}`}
-                    >
-                      <div className="loading-step-icon">
-                        {index < loadingStage ? "✓" : step.icon}
-                      </div>
+                  ].map((step, index) => {
+                    const isComplete = index < loadingStage;
+                    const isActive = index === loadingStage;
 
-                      <div className="loading-step-copy">
-                        <strong>{step.title}</strong>
-                        <span>{step.text}</span>
-                      </div>
+                    return (
+                      <div
+                        key={step.title}
+                        className={`resume-loading-step ${
+                          isActive ? "is-active" : ""
+                        } ${isComplete ? "is-complete" : ""}`}
+                      >
+                        <div className="resume-loading-icon">
+                          {isComplete ? "✓" : step.icon}
+                        </div>
 
-                      <div className="loading-step-pulse"></div>
-                    </div>
-                  ))}
+                        <div className="resume-loading-label">
+                          {step.title}
+                        </div>
+
+                        <div className="resume-loading-status">
+                          {isComplete ? "Done" : isActive ? "Working" : "Next"}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
 
-                <div className="loading-bar">
+                <div className="resume-loading-bar">
                   <div
-                    className="loading-progress"
+                    className="resume-loading-progress"
                     style={{
-                      width: `${Math.min(95, 25 + loadingStage * 30)}%`,
+                      width: `${Math.min(94, 20 + loadingStage * 34)}%`,
                     }}
-                  ></div>
+                  />
                 </div>
 
-                <p className="loading-hint">
+                <div className="resume-loading-message">
                   {loadingStage === 0
                     ? "Scanning every section of your resume..."
                     : loadingStage === 1
                     ? "Building a clearer picture of your profile..."
                     : "Almost there — checking your best opportunities..."}
-                </p>
+                </div>
               </div>
             )}
 

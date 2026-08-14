@@ -33,7 +33,9 @@ app.add_middleware(
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://192.168.1.6:5173",
+        "http://10.255.251.113:5173",
     ],
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -81,9 +83,7 @@ async def upload_resume(
             temp_file.write(content)
             temp_file_path = temp_file.name
 
-        text = extract_text_from_pdf(
-            temp_file_path
-        )
+        text = extract_text_from_pdf(temp_file_path)
 
         if not text.strip():
             raise HTTPException(
@@ -102,21 +102,14 @@ async def upload_resume(
         raise
 
     except Exception as e:
-        print(
-            "Resume processing error:",
-            str(e)
-        )
-
+        print("Resume processing error:", str(e))
         raise HTTPException(
             status_code=500,
             detail=f"Resume processing failed: {str(e)}"
         )
 
     finally:
-        if (
-            temp_file_path
-            and os.path.exists(temp_file_path)
-        ):
+        if temp_file_path and os.path.exists(temp_file_path):
             os.remove(temp_file_path)
 
 
@@ -141,10 +134,7 @@ async def match_jobs(data: dict):
     matches = []
 
     for job in jobs:
-        result = match_resume_to_job(
-            resume,
-            job
-        )
+        result = match_resume_to_job(resume, job)
 
         matches.append({
             "job_id": job["job_id"],
