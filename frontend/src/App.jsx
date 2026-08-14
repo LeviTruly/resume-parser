@@ -149,7 +149,7 @@ function App() {
       <nav className="navbar">
         <div className="logo" onClick={resetApp}>
           <div className="logo-icon">✦</div>
-          <span>CareerMatch</span>
+          <span>AI-resume-parser-and-mock-interviewer</span>
         </div>
 
         <div className="nav-links">
@@ -773,7 +773,7 @@ function App() {
                       {job.missing_skills?.length >
                         0 && (
                         <div className="job-skills missing">
-                          <h4>
+                          <h4 className="missing-title">
                             Skills to improve
                           </h4>
 
@@ -809,7 +809,7 @@ function App() {
 
             <p>
               Your resume has been extracted successfully.
-              CareerMatch has also analyzed your profile
+              AI-resume-parser-and-mock-interviewer has also analyzed your profile
               against available job opportunities.
             </p>
           </div>
@@ -817,7 +817,7 @@ function App() {
       )}
 
       <footer>
-        <strong>CareerMatch</strong>
+        <strong>AI-resume-parser-and-mock-interviewer</strong>
         <span>AI-powered career discovery</span>
       </footer>
 
@@ -844,7 +844,7 @@ function App() {
             <h2>Buy me a coffee</h2>
 
             <p>
-              If CareerMatch helped you, consider
+              If AI-resume-parser-and-mock-interviewer helped you, consider
               supporting us!
             </p>
 
@@ -893,7 +893,7 @@ function App() {
               <div className="how-step">
                 <strong>Upload Resume</strong>
                 <p>
-                  Upload your PDF, DOC, or DOCX resume.
+                  Upload your PDF resume.
                 </p>
               </div>
 
