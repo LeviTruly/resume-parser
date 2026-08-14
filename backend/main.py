@@ -7,13 +7,19 @@ import os
 from pdf_parser import extract_text_from_pdf
 from ai_parser import parse_resume_with_ai
 from matcher import match_resume_to_job
+from chatbot import router as chatbot_router
 
 
 app = FastAPI(
-    title="AI Resume Parser lol"
+    title="AI Resume Parser"
 )
 
+
+app.include_router(chatbot_router)
+
+
 MAX_FILE_SIZE = 5 * 1024 * 1024
+
 
 app.add_middleware(
     CORSMiddleware,
